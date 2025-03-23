@@ -15,7 +15,7 @@ from dspy_optimizer.core.optimizer import (
     extract_optimized_prompts
 )
 
-def optimize(examples_path=None, output_dir="."):
+def optimize(examples_path=None, output_dir=".", trials=7, candidates=5, bootstrapped_demos=3):
     try:
         lm = configure_lm()
         dspy.settings.configure(lm=lm)
@@ -28,8 +28,8 @@ def optimize(examples_path=None, output_dir="."):
         examples = load_examples(examples_path)
         train_analyzer_examples, train_examples, _ = prepare_datasets(examples)
         
-        optimized_analyzer = optimize_analyzer(train_analyzer_examples, output_dir)
-        optimize_transformer(train_examples, optimized_analyzer, output_dir)
+        optimized_analyzer = optimize_analyzer(train_analyzer_examples, output_dir, trials, bootstrapped_demos, candidates)
+        optimize_transformer(train_examples, optimized_analyzer, output_dir, trials, bootstrapped_demos, candidates)
         
         return extract_optimized_prompts(output_dir)
     except Exception as e:
@@ -109,6 +109,24 @@ def main():
         default="./output", 
         help="Directory to save optimized models and prompts"
     )
+    optimize_parser.add_argument(
+        "--trials", "-t",
+        type=int,
+        default=5,
+        help="Number of optimization trials (default: 5)"
+    )
+    optimize_parser.add_argument(
+        "--candidates", "-c",
+        type=int,
+        default=5,
+        help="Number of prompt candidates (default: 5)"
+    )
+    optimize_parser.add_argument(
+        "--demos", "-d",
+        type=int,
+        default=3,
+        help="Maximum number of bootstrapped demonstrations (default: 3)"
+    )
     
     apply_parser = subparsers.add_parser("apply", help="Apply optimized prompts to app")
     apply_parser.add_argument(
@@ -129,7 +147,7 @@ def main():
     args = parser.parse_args()
     
     if args.command == "optimize":
-        optimize(args.examples, args.output)
+        optimize(args.examples, args.output, args.trials, args.candidates, args.demos)
         print(f"Optimization complete. Results saved to {args.output}")
     elif args.command == "apply":
         success = apply_to_app(args.app_path, args.prompts, args.dry_run)

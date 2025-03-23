@@ -23,3 +23,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+for logger_name in ['litellm', 'httpx', 'numexpr', 'datasets']:
+    logging.getLogger(logger_name).setLevel(logging.WARNING)

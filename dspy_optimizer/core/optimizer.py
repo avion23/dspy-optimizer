@@ -44,15 +44,15 @@ def configure_lm():
     logging.warning("No API keys found or all model initializations failed. Using default LM.")
     return dspy.LM()
 
-def run_optimization(module, trainset, metric, output_dir, filename, module_name):
+def run_optimization(module, trainset, metric, output_dir, filename, module_name, num_trials=5, num_bootstrapped_demos=3, num_candidates=5):
     if len(trainset) < 2:
         logging.warning(f"Not enough examples for {module_name} optimization, returning unoptimized {module_name}")
         return module
     
     optimizer = dspy.MIPROv2(
         metric=metric,
-        max_bootstrapped_demos=3,
-        num_candidates=5,
+        max_bootstrapped_demos=num_bootstrapped_demos,
+        num_candidates=num_candidates,
         auto="light"
     )
     
@@ -60,7 +60,7 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
         optimized_module = optimizer.compile(
             module, 
             trainset=trainset,
-            num_trials=5,
+            num_trials=num_trials,
             requires_permission_to_run=False
         )
         
@@ -78,7 +78,7 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
                 optimized_module = optimizer.compile(
                     module, 
                     trainset=trainset,
-                    num_trials=3,
+                    num_trials=max(2, num_trials // 2),
                     requires_permission_to_run=False
                 )
                 
@@ -93,14 +93,17 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
         
         return module
 
-def optimize_analyzer(train_examples, output_dir="."):
+def optimize_analyzer(train_examples, output_dir=".", num_trials=5, num_bootstrapped_demos=3, num_candidates=5):
     return run_optimization(
         module=LinkedInStyleAnalyzer(),
         trainset=train_examples,
         metric=linkedin_style_metric,
         output_dir=output_dir,
         filename="optimized_linkedin_analyzer.json",
-        module_name="analyzer"
+        module_name="analyzer",
+        num_trials=num_trials,
+        num_bootstrapped_demos=num_bootstrapped_demos,
+        num_candidates=num_candidates
     )
 
 def extract_prompt_from_module(module):
@@ -132,14 +135,17 @@ def extract_prompt_from_module(module):
         
     return default_prompt
 
-def optimize_transformer(train_examples, analyzer, output_dir="."):
+def optimize_transformer(train_examples, analyzer, output_dir=".", num_trials=5, num_bootstrapped_demos=3, num_candidates=5):
     return run_optimization(
         module=LinkedInContentTransformer(),
         trainset=train_examples,
         metric=linkedin_content_metric,
         output_dir=output_dir,
         filename="optimized_linkedin_transformer.json",
-        module_name="transformer"
+        module_name="transformer",
+        num_trials=num_trials,
+        num_bootstrapped_demos=num_bootstrapped_demos,
+        num_candidates=num_candidates
     )
 
 def extract_optimized_prompts(output_dir="."):
