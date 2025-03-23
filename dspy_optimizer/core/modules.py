@@ -43,7 +43,6 @@ class LinkedInStyleAnalyzer(dspy.Module):
             try:
                 result.style_characteristics = json.loads(result.style_characteristics)
             except json.JSONDecodeError:
-                style_text = result.style_characteristics
                 result.style_characteristics = {
                     "tone": "extracted from sample",
                     "structure": "extracted from sample",
@@ -121,7 +120,6 @@ class StyleExtractor(dspy.Module):
             try:
                 result.style_characteristics = json.loads(result.style_characteristics)
             except json.JSONDecodeError:
-                style_text = result.style_characteristics
                 result.style_characteristics = {
                     "tone": "extracted from sample",
                     "vocabulary": "extracted from sample",

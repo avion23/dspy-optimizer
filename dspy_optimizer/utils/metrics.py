@@ -2,9 +2,8 @@ import re
 from collections import Counter
 
 def linkedin_style_metric(example=None, prediction=None, trace=None):
-    if prediction is None and example is not None:
-        prediction = example
-        
+    prediction = example if prediction is None and example else prediction
+    
     if not hasattr(prediction, 'style_characteristics'):
         return 0.0
     
@@ -19,13 +18,12 @@ def linkedin_style_metric(example=None, prediction=None, trace=None):
     ]
     
     if isinstance(characteristics, str):
-        for element in linkedin_elements:
-            if element in characteristics.lower():
-                score += 0.05
+        matches = sum(element in characteristics.lower() for element in linkedin_elements)
+        score += min(0.5, matches * 0.05)
     else:
-        for element in linkedin_elements:
-            if any(element in key.lower() for key in characteristics.keys() if characteristics.get(key)):
-                score += 0.05
+        matches = sum(any(element in key.lower() for key in characteristics.keys() if characteristics.get(key)) 
+                      for element in linkedin_elements)
+        score += min(0.5, matches * 0.05)
     
     return min(score, 1.0)
 
@@ -33,8 +31,7 @@ def extract_key_topics(text):
     common_words = {'the', 'a', 'an', 'and', 'or', 'but', 'of', 'to', 'in', 'for', 'with', 'on', 'at', 'by', 'as'}
     words = [w.strip('.,?!:;()[]{}"') for w in text.lower().split()]
     potential_topics = [w for w in words if w not in common_words and len(w) > 3]
-    word_counts = Counter(potential_topics)
-    return [word for word, count in word_counts.most_common(5)]
+    return [word for word, _ in Counter(potential_topics).most_common(5)]
 
 def has_power_words(text):
     power_words = {
@@ -45,8 +42,8 @@ def has_power_words(text):
         'warning', 'danger', 'critical', 'fear', 'success', 'failure', 'mistake'
     }
     
-    words = text.lower().split()
-    return any(word.strip('.,?!:;()[]{}"') in power_words for word in words)
+    words = [word.strip('.,?!:;()[]{}"') for word in text.lower().split()]
+    return any(word in power_words for word in words)
 
 def has_statistic(text):
     number_pattern = r'\d+%|\d+|one|two|three|four|five|six|seven|eight|nine|ten|hundred|thousand|million|billion'
@@ -61,8 +58,7 @@ def emoji_distribution_score(text, emoji_list):
     return min(1.0, para_with_emoji / len(paragraphs))
 
 def analyze_sentence_length_variety(text):
-    sentences = re.split(r'[.!?]\s', text)
-    sentences = [s for s in sentences if s.strip()]
+    sentences = [s for s in re.split(r'[.!?]\s', text) if s.strip()]
     
     if len(sentences) <= 1:
         return 0.0
@@ -70,7 +66,6 @@ def analyze_sentence_length_variety(text):
     lengths = [len(s.split()) for s in sentences]
     short = sum(1 for l in lengths if l <= 10)
     medium = sum(1 for l in lengths if 10 < l <= 20)
-    long = sum(1 for l in lengths if l > 20)
     
     if short > 0 and medium > 0:
         return 1.0
@@ -79,21 +74,16 @@ def analyze_sentence_length_variety(text):
     return 0.0
 
 def linkedin_content_metric(example=None, prediction=None, trace=None):
-    if prediction is None and example is not None:
-        prediction = example
-        example = None
-        
+    prediction = example if prediction is None and example else prediction
+    example = None if prediction == example else example
+    
     if not hasattr(prediction, 'linkedin_article'):
         return 0.0
     
     article = prediction.linkedin_article
     
-    original = ''
-    expected = ''
-    
-    if example is not None:
-        original = getattr(example, 'content_to_transform', '')
-        expected = getattr(example, 'expected_linkedin_article', '')
+    original = getattr(example, 'content_to_transform', '') if example else ''
+    expected = getattr(example, 'expected_linkedin_article', '') if example else ''
     
     if not article:
         return 0.0
@@ -101,9 +91,7 @@ def linkedin_content_metric(example=None, prediction=None, trace=None):
         return 0.1
     
     score = 0.2
-    
     linkedin_emojis = ['🔎', '💡', '🚀', '✅', '🤔', '👉', '💪', '📊', '🔑', '💼', '📈', '🔄', '📱', '💭', '⚡', '🎯', '💰', '🧠', '⭐']
-    
     topics = extract_key_topics(original)
     
     lines = article.split('\n')
@@ -145,84 +133,67 @@ def linkedin_content_metric(example=None, prediction=None, trace=None):
     
     questions = sum(1 for line in lines if '?' in line)
     if questions >= 1:
-        if '?' in last_paragraph:
-            score += 0.1
-        else:
-            score += 0.05
+        score += 0.1 if '?' in last_paragraph else 0.05
+    
+    indicators = {
+        'problem': ['challenge', 'problem', 'issue', 'struggle', 'difficult', 'pain', 'risk'],
+        'solution': ['solution', 'benefit', 'advantage', 'opportunity', 'results', 'outcome', 'success'],
+        'evidence': ['example', 'study', 'research', 'data', 'survey', 'report', 'case', 'proof', 'evidence']
+    }
     
     structure_score = 0.0
-    
-    problem_indicators = ['challenge', 'problem', 'issue', 'struggle', 'difficult', 'pain', 'risk']
-    has_problem = any(indicator in ' '.join(lines[:min(5, len(lines))]).lower() for indicator in problem_indicators)
-    if has_problem:
+    if any(p in ' '.join(lines[:min(5, len(lines))]).lower() for p in indicators['problem']):
         structure_score += 0.3
-        
-    solution_indicators = ['solution', 'benefit', 'advantage', 'opportunity', 'results', 'outcome', 'success']
-    has_solution = any(indicator in ' '.join(lines[min(3, len(lines)-1):min(10, len(lines))]).lower() for indicator in solution_indicators)
-    if has_solution:
+    if any(s in ' '.join(lines[min(3, len(lines)-1):min(10, len(lines))]).lower() for s in indicators['solution']):
         structure_score += 0.3
-        
-    evidence_indicators = ['example', 'study', 'research', 'data', 'survey', 'report', 'case', 'proof', 'evidence']
-    has_evidence = any(indicator in article.lower() for indicator in evidence_indicators)
-    if has_evidence:
+    if any(e in article.lower() for e in indicators['evidence']):
         structure_score += 0.2
         
     score += min(0.15, structure_score)
     
     bullet_lines = sum(1 for line in lines if line.strip().startswith(('•', '-', '✅', '✓', '→', '1.', '2.', '3.', '4.', '5.')))
-    if bullet_lines >= 3:
-        score += 0.1
-    elif bullet_lines > 0:
-        score += 0.05
+    score += 0.1 if bullet_lines >= 3 else (0.05 if bullet_lines > 0 else 0)
     
-    if paragraphs and max(len(p) for p in paragraphs) < 150:
-        score += 0.1
-    elif paragraphs and max(len(p) for p in paragraphs) < 250:
-        score += 0.05
+    if paragraphs:
+        max_para_len = max(len(p) for p in paragraphs)
+        score += 0.1 if max_para_len < 150 else (0.05 if max_para_len < 250 else 0)
     
-    variety_score = analyze_sentence_length_variety(article)
-    score += variety_score * 0.05
+    score += analyze_sentence_length_variety(article) * 0.05
     
     cta_score = 0.0
     if '?' in last_paragraph:
         cta_score += 0.5
     if any(cta in last_paragraph.lower() for cta in ['comment', 'share', 'thoughts', 'agree', 'follow', 'connect', 'learn', 'contact']):
         cta_score += 0.5
-        specific_cta = any(specific in last_paragraph.lower() for specific in ['what do you think about', 'what has your experience been', 'share your'])
-        if specific_cta:
+        if any(specific in last_paragraph.lower() for specific in ['what do you think about', 'what has your experience been', 'share your']):
             cta_score += 0.2
     score += min(0.1, cta_score / 10)
     
-    if article.count('\n\n') >= 4:
-        score += 0.1
-    elif article.count('\n\n') >= 2:
-        score += 0.05
+    newline_pairs = article.count('\n\n')
+    score += 0.1 if newline_pairs >= 4 else (0.05 if newline_pairs >= 2 else 0)
     
-    if expected and len(article) < len(expected) * 0.5:
-        score -= 0.2
-    elif expected and len(article) > len(expected) * 1.5:
-        score -= 0.1
+    if expected:
+        if len(article) < len(expected) * 0.5:
+            score -= 0.2
+        elif len(article) > len(expected) * 1.5:
+            score -= 0.1
     
     return min(max(score, 0.0), 1.0)
 
 def linkedin_quality_metric(example=None, prediction=None, trace=None):
-    if prediction is None and example is not None:
-        prediction = example
-        
+    prediction = example if prediction is None and example else prediction
+    
     if not hasattr(prediction, 'quality_score') or not hasattr(prediction, 'feedback'):
         return 0.0
     
-    feedback_quality = 0.0
     feedback = prediction.feedback
-    if feedback:
-        if len(feedback) > 50:
-            feedback_quality = 0.5
-            
-            quality_terms = ['improve', 'enhance', 'better', 'consider', 'suggest', 'engagement', 'hook', 'emoji']
-            for term in quality_terms:
-                if term in feedback:
-                    feedback_quality = 0.8
-                    break
+    feedback_quality = 0.0
+    
+    if feedback and len(feedback) > 50:
+        feedback_quality = 0.5
+        quality_terms = ['improve', 'enhance', 'better', 'consider', 'suggest', 'engagement', 'hook', 'emoji']
+        if any(term in feedback for term in quality_terms):
+            feedback_quality = 0.8
     
     score = prediction.quality_score
     if isinstance(score, str):

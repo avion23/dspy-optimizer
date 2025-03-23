@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 import dspy
@@ -22,39 +23,27 @@ def configure_lm():
                 api_base="https://generativelanguage.googleapis.com/v1beta/openai/",
                 api_key=os.getenv("GEMINI_API_KEY")
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Failed to initialize Gemini model: {e}")
     
     if os.getenv("OPENAI_API_KEY"):
         try:
             return dspy.LM(model="openai/gpt-4o-mini")
-        except Exception:
+        except Exception as e:
+            logging.warning(f"Failed to initialize GPT-4o-mini: {e}")
             try:
                 return dspy.LM(model="openai/gpt-3.5-turbo")
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning(f"Failed to initialize GPT-3.5-turbo: {e}")
     
+    logging.warning("No API keys found or all model initializations failed. Using default LM.")
     return dspy.LM()
 
 def run_optimization(module, trainset, metric, output_dir, filename, module_name):
-    """Generic function to run optimization and save results.
-    
-    Args:
-        module: The module to optimize
-        trainset: The training examples
-        metric: The metric to use for optimization
-        output_dir: Directory to save the results
-        filename: Filename to save the optimized module
-        module_name: Name of the module for error messages
-        
-    Returns:
-        The optimized module or the original if optimization fails
-    """
     if len(trainset) < 2:
-        print(f"Not enough examples for {module_name} optimization, returning unoptimized {module_name}")
+        logging.warning(f"Not enough examples for {module_name} optimization, returning unoptimized {module_name}")
         return module
     
-    # Create optimizer
     optimizer = dspy.MIPROv2(
         metric=metric,
         max_bootstrapped_demos=6,
@@ -62,7 +51,6 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
     )
     
     try:
-        # Run optimization
         optimized_module = optimizer.compile(
             module, 
             trainset=trainset,
@@ -70,7 +58,6 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
             requires_permission_to_run=False
         )
         
-        # Save the optimized module
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
@@ -79,19 +66,10 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
         
         return optimized_module
     except Exception as e:
-        print(f"{module_name.capitalize()} optimization error: {e}")
+        logging.error(f"{module_name.capitalize()} optimization error: {e}")
         return module
 
 def optimize_analyzer(train_examples: List[dspy.Example], output_dir: str = ".") -> LinkedInStyleAnalyzer:
-    """Optimize a LinkedIn style analyzer using MIPRO.
-    
-    Args:
-        train_examples: Training examples
-        output_dir: Directory to save the optimized analyzer
-        
-    Returns:
-        Optimized analyzer or the original if optimization fails
-    """
     analyzer = LinkedInStyleAnalyzer()
     return run_optimization(
         module=analyzer,
@@ -103,42 +81,38 @@ def optimize_analyzer(train_examples: List[dspy.Example], output_dir: str = ".")
     )
 
 def extract_prompt_from_module(module) -> str:
-    if isinstance(module, LinkedInStyleAnalyzer):
-        return "You are an AI that analyzes LinkedIn content to identify effective posting strategies. Extract key style characteristics such as tone, structure, emoji usage, hooks, calls-to-action, and formatting."
-    elif isinstance(module, LinkedInContentTransformer):
-        return "You are a LinkedIn content expert. Transform the provided content into an engaging LinkedIn post by applying the style characteristics. Focus on creating attention-grabbing hooks, using emojis strategically, formatting for readability, and adding appropriate hashtags."
-        
-    default_prompt = f"{module.__class__.__name__} optimized prompt"
+    default_prompts = {
+        LinkedInStyleAnalyzer: "You are an AI that analyzes LinkedIn content to identify effective posting strategies. Extract key style characteristics such as tone, structure, emoji usage, hooks, calls-to-action, and formatting.",
+        LinkedInContentTransformer: "You are a LinkedIn content expert. Transform the provided content into an engaging LinkedIn post by applying the style characteristics. Focus on creating attention-grabbing hooks, using emojis strategically, formatting for readability, and adding appropriate hashtags."
+    }
+    
+    module_type = type(module)
+    if module_type in default_prompts:
+        default_prompt = default_prompts[module_type]
+    else:
+        default_prompt = f"{module.__class__.__name__} optimized prompt"
     
     try:
-        if hasattr(module, "_compiled_lm") and hasattr(module._compiled_lm, "program_template"):
-            return module._compiled_lm.program_template
+        attrs_to_check = [
+            ('_compiled_lm', 'program_template'),
+            ('analyzer', 'template'),
+            ('transformer', 'template'),
+            ('predictor', 'template')
+        ]
         
-        if hasattr(module, "analyzer") and hasattr(module.analyzer, "template"):
-            return module.analyzer.template
-        
-        if hasattr(module, "transformer") and hasattr(module.transformer, "template"):
-            return module.transformer.template
-            
-        if hasattr(module, "predictor") and hasattr(module.predictor, "template"):
-            return module.predictor.template
-            
-    except Exception:
-        pass
+        for attr, subattr in attrs_to_check:
+            if hasattr(module, attr):
+                obj = getattr(module, attr)
+                if hasattr(obj, subattr):
+                    prompt = getattr(obj, subattr)
+                    if prompt and isinstance(prompt, str):
+                        return prompt
+    except Exception as e:
+        logging.warning(f"Error extracting prompt from module: {e}")
         
     return default_prompt
 
 def optimize_transformer(train_examples: List[dspy.Example], analyzer: LinkedInStyleAnalyzer, output_dir: str = ".") -> LinkedInContentTransformer:
-    """Optimize a LinkedIn content transformer using MIPRO.
-    
-    Args:
-        train_examples: Training examples
-        analyzer: Analyzer to use for extracting style characteristics
-        output_dir: Directory to save the optimized transformer
-        
-    Returns:
-        Optimized transformer or the original if optimization fails
-    """
     transformer = LinkedInContentTransformer()
     return run_optimization(
         module=transformer,
@@ -160,14 +134,14 @@ def extract_optimized_prompts(output_dir: str = ".") -> Dict[str, str]:
     if analyzer_path.exists():
         try:
             analyzer.load(str(analyzer_path))
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Error loading analyzer from {analyzer_path}: {e}. Using default.")
     
     if transformer_path.exists():
         try:
             transformer.load(str(transformer_path))
-        except Exception:
-            pass
+        except Exception as e:
+            logging.warning(f"Error loading transformer from {transformer_path}: {e}. Using default.")
     
     prompts = {
         "linkedin_analyzer_prompt": extract_prompt_from_module(analyzer),

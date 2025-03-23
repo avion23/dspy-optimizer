@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import argparse
+import logging
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -17,14 +18,12 @@ from dspy_optimizer.core.optimizer import (
 
 def optimize(examples_path: Optional[str] = None, output_dir: str = ".") -> Dict:
     try:
-        # Configure language model
         lm = configure_lm()
         dspy.settings.configure(lm=lm)
         
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        # Default to LinkedIn examples if no path specified
         if examples_path is None:
             examples_path = os.path.join(os.path.dirname(__file__), "..", "linkedin_examples.json")
         
@@ -36,7 +35,7 @@ def optimize(examples_path: Optional[str] = None, output_dir: str = ".") -> Dict
         
         return extract_optimized_prompts(output_dir)
     except Exception as e:
-        print(f"Optimization error: {e}")
+        logging.error(f"Optimization error: {e}")
         return {"error": str(e)}
 
 def apply_to_app(app_path: Optional[str] = None, prompts_path: str = "optimized_prompts.json", dry_run: bool = False) -> bool:
@@ -44,20 +43,27 @@ def apply_to_app(app_path: Optional[str] = None, prompts_path: str = "optimized_
         with open(prompts_path, "r") as f:
             prompts = json.load(f)
     except FileNotFoundError:
-        print(f"Prompts file not found: {prompts_path}")
+        logging.error(f"Prompts file not found: {prompts_path}")
         return False
     except json.JSONDecodeError:
-        print(f"Invalid JSON in prompts file: {prompts_path}")
+        logging.error(f"Invalid JSON in prompts file: {prompts_path}")
         return False
     
-    # Check if we have LinkedIn prompts
     linkedin_prompts = "linkedin_analyzer_prompt" in prompts and "linkedin_transformer_prompt" in prompts
     
-    app_path = Path(app_path or os.path.expanduser("~/Documents/projects/app_src"))
+    if not app_path:
+        app_path = input("Enter the application directory path (e.g., ./app): ")
+        if not app_path:
+            logging.error("No application path provided")
+            return False
+    
+    app_path = Path(app_path)
+    if not app_path.exists():
+        logging.error(f"Application path not found: {app_path}")
+        return False
     
     update_successful = False
     
-    # Check for social media content app files
     social_page_path = app_path / "lib" / "social_media_content.dart"
     linkedin_page_path = app_path / "lib" / "linkedin_post.dart"
     
@@ -67,12 +73,10 @@ def apply_to_app(app_path: Optional[str] = None, prompts_path: str = "optimized_
             with open(target_path, "r") as f:
                 content = f.read()
             
-            # Update analyzer prompt
             old_analyzer_prompt = "You are an AI that analyzes LinkedIn posts."
             if old_analyzer_prompt in content:
                 new_content = content.replace(old_analyzer_prompt, prompts["linkedin_analyzer_prompt"])
                 
-                # Update transformer prompt
                 old_transformer_prompt = "Transform the content into an engaging LinkedIn post."
                 if old_transformer_prompt in new_content:
                     new_content = new_content.replace(old_transformer_prompt, prompts["linkedin_transformer_prompt"])
@@ -82,9 +86,9 @@ def apply_to_app(app_path: Optional[str] = None, prompts_path: str = "optimized_
                         f.write(new_content)
                 update_successful = True
                 
-                print(f"Updated LinkedIn prompts in {target_path}")
+                logging.info(f"Updated LinkedIn prompts in {target_path}")
         except Exception as e:
-            print(f"Error updating app files: {e}")
+            logging.error(f"Error updating app files: {e}")
     
     return update_successful
 
@@ -106,7 +110,7 @@ def main():
     apply_parser = subparsers.add_parser("apply", help="Apply optimized prompts to app")
     apply_parser.add_argument(
         "--app-path", "-a", 
-        help="Path to app source code (optional)"
+        help="Path to app source code"
     )
     apply_parser.add_argument(
         "--prompts", "-p", 
