@@ -1,10 +1,9 @@
-# Python artifacts
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
@@ -16,15 +15,10 @@ lib64/
 parts/
 sdist/
 var/
+wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.benchmarks/
 
 # Environment
 .env
@@ -33,7 +27,22 @@ env/
 venv/
 ENV/
 
-# OS specific
-.DS_Store
+# IDE
 .idea/
 .vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.benchmarks/
+
+# Output
+output/
+test_output/
+
+# Temporary files
+*.log
+*.tmp

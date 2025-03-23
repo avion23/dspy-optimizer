@@ -1,2 +1,2 @@
-from dspy_optimizer.core.modules import StyleExtractor, StyleApplicator, StylePipeline
-from dspy_optimizer.core.optimizer import optimize_extractor, optimize_applicator
+from dspy_optimizer.core.modules import LinkedInStyleAnalyzer, LinkedInContentTransformer, LinkedInArticlePipeline
+from dspy_optimizer.core.optimizer import optimize_analyzer, optimize_transformer, extract_optimized_prompts

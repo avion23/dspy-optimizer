@@ -1,99 +1,68 @@
 import unittest
 import dspy
-from dspy_optimizer.core.optimizer import style_quality_metric, style_application_metric
-
-# Define style_effectiveness_metric locally for tests
-def style_effectiveness_metric(example=None, prediction=None, trace=None):
-    """Combined metric for evaluating style transfer pipeline."""
-    # Handle different calling conventions
-    if prediction is None and example is not None:
-        prediction = example  # When called with just one argument
-        
-    if not hasattr(prediction, 'similarity_score') or not hasattr(prediction, 'feedback'):
-        return 0.0
-    
-    feedback_quality = 0.0
-    if hasattr(prediction, 'feedback'):
-        feedback = prediction.feedback.lower()
-        if len(feedback) > 50:
-            feedback_quality = 0.5
-            
-            quality_terms = ['improve', 'enhance', 'better', 'consider', 'suggest']
-            for term in quality_terms:
-                if term in feedback:
-                    feedback_quality = 0.8
-                    break
-    
-    # Convert similarity score to float if it's a string
-    score = prediction.similarity_score
-    if isinstance(score, str):
-        try:
-            score = float(score)
-        except ValueError:
-            score = 0.5
-    
-    return 0.7 * score + 0.3 * feedback_quality
+from dspy_optimizer.utils.metrics import linkedin_style_metric, linkedin_content_metric, linkedin_quality_metric
 
 class TestMetrics(unittest.TestCase):
-    def test_style_quality_metric(self):
+    def test_linkedin_style_metric(self):
         # Test missing attributes
         prediction = dspy.Example()
-        self.assertEqual(style_quality_metric(prediction), 0.0)
+        self.assertEqual(linkedin_style_metric(prediction), 0.0)
         
         # Test with short characteristics
         prediction = dspy.Example(style_characteristics="Short")
-        self.assertEqual(style_quality_metric(prediction), 0.25)
+        self.assertEqual(linkedin_style_metric(prediction), 0.25)
         
         # Test with medium characteristics
-        prediction = dspy.Example(style_characteristics="This text has a formal tone with some advanced vocabulary.")
-        score = style_quality_metric(prediction)
+        prediction = dspy.Example(style_characteristics="This text has an engaging tone with some LinkedIn-specific elements.")
+        score = linkedin_style_metric(prediction)
         self.assertGreater(score, 0.5)
         
-        # Test with comprehensive characteristics including style elements
-        prediction = dspy.Example(style_characteristics=(
-            "This text exhibits a formal tone with advanced vocabulary and complex sentence structure. "
-            "It uses third-person voice consistently and maintains a professional, academic paragraph format. "
-            "The punctuation is precise and grammar follows strict conventions."
-        ))
-        score = style_quality_metric(prediction)
+        # Test with comprehensive characteristics including LinkedIn elements
+        prediction = dspy.Example(style_characteristics={
+            "tone": "conversational and professional",
+            "structure": "attention-grabbing hook followed by value points",
+            "formatting": "uses bullet points and emojis",
+            "hooks_and_cta": "strong question hook and call to engage",
+            "emoji_usage": "professional emojis like 🚀, 💡, ✅"
+        })
+        score = linkedin_style_metric(prediction)
         self.assertGreater(score, 0.7)
     
-    def test_style_application_metric(self):
+    def test_linkedin_content_metric(self):
         # Test missing attributes
         prediction = dspy.Example()
-        self.assertEqual(style_application_metric(dspy.Example(), prediction), 0.0)
+        self.assertEqual(linkedin_content_metric(dspy.Example(), prediction), 0.0)
         
-        # Test with empty styled content
-        example = dspy.Example(content="Original content", expected_styled_content="Expected styled content")
-        prediction = dspy.Example(styled_content="")
-        self.assertEqual(style_application_metric(example, prediction), 0.0)
+        # Test with empty article
+        example = dspy.Example(content_to_transform="Original content", expected_linkedin_article="Expected article")
+        prediction = dspy.Example(linkedin_article="")
+        self.assertEqual(linkedin_content_metric(example, prediction), 0.0)
         
         # Test with unchanged content
-        prediction = dspy.Example(styled_content="Original content")
-        self.assertEqual(style_application_metric(example, prediction), 0.1)
+        prediction = dspy.Example(linkedin_article="Original content")
+        self.assertEqual(linkedin_content_metric(example, prediction), 0.1)
         
-        # Test with good styled content
-        prediction = dspy.Example(styled_content="This is a properly styled version of the original content that preserves key terms")
-        score = style_application_metric(example, prediction)
-        # Fix: Changed from assertGreater to assertGreaterEqual
+        # Test with good LinkedIn article
+        prediction = dspy.Example(linkedin_article="🚀 This is a properly styled LinkedIn article with emojis ✅\n\nIt has multiple paragraphs and includes hashtags.\n\n• It uses bullet points\n• For better readability\n• And engagement\n\nWhat do you think about this approach? #LinkedIn #Engagement")
+        score = linkedin_content_metric(example, prediction)
         self.assertGreaterEqual(score, 0.4)
     
-    def test_style_effectiveness_metric(self):
+    def test_linkedin_quality_metric(self):
         # Test missing attributes
         prediction = dspy.Example()
-        self.assertEqual(style_effectiveness_metric(prediction), 0.0)
+        self.assertEqual(linkedin_quality_metric(prediction), 0.0)
         
         # Test with minimal feedback and low score
-        prediction = dspy.Example(similarity_score=0.3, feedback="Short")
-        score = style_effectiveness_metric(prediction)
+        prediction = dspy.Example(quality_score=0.3, feedback="Short")
+        score = linkedin_quality_metric(prediction)
         self.assertLess(score, 0.3)
         
         # Test with good feedback and high score
         prediction = dspy.Example(
-            similarity_score=0.8,
-            feedback="To improve the style transfer, consider enhancing the vocabulary with more domain-specific terms."
+            quality_score=0.8,
+            feedback="To improve engagement, consider adding more emojis and a stronger hook in the beginning."
         )
-        score = style_effectiveness_metric(prediction)
+        score = linkedin_quality_metric(prediction)
         self.assertGreater(score, 0.7)
 
 if __name__ == "__main__":

@@ -4,221 +4,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 import dspy
 from typing import Dict, List, Optional
-from dspy_optimizer.core.modules import StyleExtractor, StyleApplicator
+from dspy_optimizer.utils.metrics import linkedin_style_metric, linkedin_content_metric, linkedin_quality_metric
 
-def style_quality_metric(example=None, prediction=None, trace=None):
-    """Modified to handle both 2 and 3 argument calls"""
-    # Handle different calling conventions
-    if prediction is None and example is not None:
-        prediction = example  # When called with just one argument
-        
-    if not hasattr(prediction, 'style_characteristics'):
-        return 0.0
-    
-    characteristics = prediction.style_characteristics
-    if not characteristics or len(characteristics) < 20:
-        return 0.25
-    
-    score = 0.5
-    style_elements = [
-        'tone', 'vocabulary', 'formality', 'sentence', 'paragraph', 
-        'structure', 'punctuation', 'grammar', 'voice', 'person'
-    ]
-    
-    # Handle string characteristics
-    if isinstance(characteristics, str):
-        for element in style_elements:
-            if element in characteristics.lower():
-                score += 0.05
-    else:
-        # Handle dictionary characteristics
-        for element in style_elements:
-            if element in characteristics and characteristics[element]:
-                score += 0.05
-    
-    return min(score, 1.0)
-
-def style_application_metric(example=None, prediction=None, trace=None):
-    """Modified to handle both 2 and 3 argument calls"""
-    # Handle different calling conventions
-    if prediction is None and example is not None:
-        prediction = example  # When called with just one argument
-        example = None
-        
-    if not hasattr(prediction, 'styled_content'):
-        return 0.0
-    
-    styled_content = prediction.styled_content
-    
-    # Get content from the right field (either content or content_to_style)
-    original = ''
-    expected = ''
-    
-    if example is not None:
-        original = example.content if hasattr(example, 'content') else getattr(example, 'content_to_style', '')
-        expected = getattr(example, 'expected_styled_content', '')
-    
-    if not styled_content:
-        return 0.0
-    if styled_content == original:
-        return 0.1
-    
-    score = 0.4
-    
-    original_to_expected_ratio = len(expected) / len(original) if len(original) > 0 else 1
-    styled_to_original_ratio = len(styled_content) / len(original) if len(original) > 0 else 1
-    
-    ratio_diff = abs(original_to_expected_ratio - styled_to_original_ratio)
-    if ratio_diff < 0.2:
-        score += 0.2
-    
-    original_words = set(original.lower().split())
-    styled_words = set(styled_content.lower().split())
-    
-    intersection = len(original_words.intersection(styled_words))
-    union = len(original_words.union(styled_words))
-    
-    if union > 0:
-        iou = intersection / union
-        if 0.2 <= iou <= 0.7:
-            score += 0.3
-    
-    return min(score, 1.0)
-
-def optimize_extractor(train_examples: List[dspy.Example], output_dir: str = ".") -> StyleExtractor:
-    extractor = StyleExtractor()
-    
-    if len(train_examples) < 2:
-        print("Not enough examples for optimization, returning unoptimized extractor")
-        return extractor
-        
-    optimizer = dspy.MIPROv2(
-        metric=style_quality_metric,
-        max_bootstrapped_demos=4,
-        auto="medium"
-    )
-    
-    try:
-        optimized_extractor = optimizer.compile(extractor, trainset=train_examples)
-        
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        save_path = output_path / "optimized_style_extractor.json"
-        optimized_extractor.save(str(save_path))
-        
-        return optimized_extractor
-    except Exception as e:
-        print(f"Extractor optimization error: {e}")
-        return extractor
-
-def optimize_applicator(train_examples: List[dspy.Example], optimized_extractor: Optional[StyleExtractor] = None, 
-                       output_dir: str = ".") -> StyleApplicator:
-    extractor = optimized_extractor if optimized_extractor else StyleExtractor()
-    applicator = StyleApplicator()
-    
-    application_examples = []
-    for example in train_examples:
-        try:
-            extraction_result = extractor(example.sample_text)
-            
-            app_example = dspy.Example(
-                content=example.content_to_style,
-                style_characteristics=extraction_result.style_characteristics,
-                expected_styled_content=example.expected_styled_content
-            ).with_inputs("content", "style_characteristics")
-            
-            application_examples.append(app_example)
-        except Exception as e:
-            print(f"Example processing error: {e}")
-            continue
-    
-    if not application_examples or len(application_examples) < 2:
-        print("Not enough processed examples for applicator optimization, returning unoptimized applicator")
-        return applicator
-        
-    optimizer = dspy.MIPROv2(
-        metric=style_application_metric,
-        max_bootstrapped_demos=4,
-        auto="medium"
-    )
-    
-    try:
-        optimized_applicator = optimizer.compile(applicator, trainset=application_examples)
-        
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        save_path = output_path / "optimized_style_applicator.json"
-        optimized_applicator.save(str(save_path))
-        
-        return optimized_applicator
-    except Exception as e:
-        print(f"Applicator optimization error: {e}")
-        return applicator
-
-def extract_prompt_from_module(module) -> str:
-    # For unoptimized modules, return more useful default prompts
-    if isinstance(module, StyleExtractor):
-        return "You are an AI that analyzes text and creates concise style instructions for other AI's to rewrite texts. Extract key style characteristics such as tone, vocabulary level, sentence structure, and paragraph organization."
-    elif isinstance(module, StyleApplicator):
-        return "You are a helpful assistant for writing texts in specific styles. Apply the provided style characteristics to transform the content while preserving its core meaning."
-        
-    default_prompt = f"{module.__class__.__name__} optimized prompt"
-    
-    try:
-        if hasattr(module, "_compiled_lm") and hasattr(module._compiled_lm, "program_template"):
-            return module._compiled_lm.program_template
-        
-        if hasattr(module, "extractor") and hasattr(module.extractor, "template"):
-            return module.extractor.template
-        
-        if hasattr(module, "applicator") and hasattr(module.applicator, "template"):
-            return module.applicator.template
-            
-        if hasattr(module, "predictor") and hasattr(module.predictor, "template"):
-            return module.predictor.template
-            
-        if hasattr(module, "lm") and hasattr(module.lm, "template"):
-            return module.lm.template
-    except Exception:
-        pass
-    
-    return default_prompt
-
-def extract_optimized_prompts(output_dir: str = ".") -> Dict[str, str]:
-    output_path = Path(output_dir)
-    extractor_path = output_path / "optimized_style_extractor.json"
-    applicator_path = output_path / "optimized_style_applicator.json"
-    
-    extractor = StyleExtractor()
-    applicator = StyleApplicator()
-    
-    if extractor_path.exists():
-        try:
-            extractor.load(str(extractor_path))
-        except Exception:
-            pass
-    
-    if applicator_path.exists():
-        try:
-            applicator.load(str(applicator_path))
-        except Exception:
-            pass
-    
-    prompts = {
-        "style_analyzer_prompt": extract_prompt_from_module(extractor),
-        "style_applicator_prompt": extract_prompt_from_module(applicator)
-    }
-    
-    prompts_path = output_path / "optimized_prompts.json"
-    try:
-        with open(prompts_path, 'w') as f:
-            json.dump(prompts, f, indent=2)
-    except Exception:
-        pass
-    
-    return prompts
+from dspy_optimizer.core.modules import (
+    LinkedInStyleAnalyzer, 
+    LinkedInContentTransformer,
+    LinkedInArticlePipeline
+)
 
 def configure_lm():
     load_dotenv()
@@ -243,3 +35,147 @@ def configure_lm():
                 pass
     
     return dspy.LM()
+
+def run_optimization(module, trainset, metric, output_dir, filename, module_name):
+    """Generic function to run optimization and save results.
+    
+    Args:
+        module: The module to optimize
+        trainset: The training examples
+        metric: The metric to use for optimization
+        output_dir: Directory to save the results
+        filename: Filename to save the optimized module
+        module_name: Name of the module for error messages
+        
+    Returns:
+        The optimized module or the original if optimization fails
+    """
+    if len(trainset) < 2:
+        print(f"Not enough examples for {module_name} optimization, returning unoptimized {module_name}")
+        return module
+    
+    # Create optimizer
+    optimizer = dspy.MIPROv2(
+        metric=metric,
+        max_bootstrapped_demos=6,
+        auto="medium"
+    )
+    
+    try:
+        # Run optimization
+        optimized_module = optimizer.compile(
+            module, 
+            trainset=trainset,
+            num_trials=20,
+            requires_permission_to_run=False
+        )
+        
+        # Save the optimized module
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        
+        save_path = output_path / filename
+        optimized_module.save(str(save_path))
+        
+        return optimized_module
+    except Exception as e:
+        print(f"{module_name.capitalize()} optimization error: {e}")
+        return module
+
+def optimize_analyzer(train_examples: List[dspy.Example], output_dir: str = ".") -> LinkedInStyleAnalyzer:
+    """Optimize a LinkedIn style analyzer using MIPRO.
+    
+    Args:
+        train_examples: Training examples
+        output_dir: Directory to save the optimized analyzer
+        
+    Returns:
+        Optimized analyzer or the original if optimization fails
+    """
+    analyzer = LinkedInStyleAnalyzer()
+    return run_optimization(
+        module=analyzer,
+        trainset=train_examples,
+        metric=linkedin_style_metric,
+        output_dir=output_dir,
+        filename="optimized_linkedin_analyzer.json",
+        module_name="analyzer"
+    )
+
+def extract_prompt_from_module(module) -> str:
+    if isinstance(module, LinkedInStyleAnalyzer):
+        return "You are an AI that analyzes LinkedIn content to identify effective posting strategies. Extract key style characteristics such as tone, structure, emoji usage, hooks, calls-to-action, and formatting."
+    elif isinstance(module, LinkedInContentTransformer):
+        return "You are a LinkedIn content expert. Transform the provided content into an engaging LinkedIn post by applying the style characteristics. Focus on creating attention-grabbing hooks, using emojis strategically, formatting for readability, and adding appropriate hashtags."
+        
+    default_prompt = f"{module.__class__.__name__} optimized prompt"
+    
+    try:
+        if hasattr(module, "_compiled_lm") and hasattr(module._compiled_lm, "program_template"):
+            return module._compiled_lm.program_template
+        
+        if hasattr(module, "analyzer") and hasattr(module.analyzer, "template"):
+            return module.analyzer.template
+        
+        if hasattr(module, "transformer") and hasattr(module.transformer, "template"):
+            return module.transformer.template
+            
+        if hasattr(module, "predictor") and hasattr(module.predictor, "template"):
+            return module.predictor.template
+            
+    except Exception:
+        pass
+        
+    return default_prompt
+
+def optimize_transformer(train_examples: List[dspy.Example], analyzer: LinkedInStyleAnalyzer, output_dir: str = ".") -> LinkedInContentTransformer:
+    """Optimize a LinkedIn content transformer using MIPRO.
+    
+    Args:
+        train_examples: Training examples
+        analyzer: Analyzer to use for extracting style characteristics
+        output_dir: Directory to save the optimized transformer
+        
+    Returns:
+        Optimized transformer or the original if optimization fails
+    """
+    transformer = LinkedInContentTransformer()
+    return run_optimization(
+        module=transformer,
+        trainset=train_examples,
+        metric=linkedin_content_metric,
+        output_dir=output_dir,
+        filename="optimized_linkedin_transformer.json",
+        module_name="transformer"
+    )
+
+def extract_optimized_prompts(output_dir: str = ".") -> Dict[str, str]:
+    output_path = Path(output_dir)
+    analyzer_path = output_path / "optimized_linkedin_analyzer.json"
+    transformer_path = output_path / "optimized_linkedin_transformer.json"
+    
+    analyzer = LinkedInStyleAnalyzer()
+    transformer = LinkedInContentTransformer()
+    
+    if analyzer_path.exists():
+        try:
+            analyzer.load(str(analyzer_path))
+        except Exception:
+            pass
+    
+    if transformer_path.exists():
+        try:
+            transformer.load(str(transformer_path))
+        except Exception:
+            pass
+    
+    prompts = {
+        "linkedin_analyzer_prompt": extract_prompt_from_module(analyzer),
+        "linkedin_transformer_prompt": extract_prompt_from_module(transformer)
+    }
+    
+    prompts_path = output_path / "optimized_prompts.json"
+    with open(prompts_path, "w") as f:
+        json.dump(prompts, f, indent=2)
+    
+    return prompts

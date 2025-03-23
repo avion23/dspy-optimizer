@@ -1,6 +1,21 @@
 import dspy
 import json
 
+class LinkedInStyleAnalysis(dspy.Signature):
+    sample_post = dspy.InputField()
+    style_characteristics = dspy.OutputField()
+
+class LinkedInContentTransformation(dspy.Signature):
+    content_to_transform = dspy.InputField()
+    style_characteristics = dspy.InputField()
+    linkedin_article = dspy.OutputField()
+
+class ArticleQualityEvaluation(dspy.Signature):
+    original_sample = dspy.InputField()
+    generated_article = dspy.InputField()
+    quality_score = dspy.OutputField()
+    feedback = dspy.OutputField()
+
 class StyleExtraction(dspy.Signature):
     sample_text = dspy.InputField()
     style_characteristics = dspy.OutputField()
@@ -10,11 +25,89 @@ class StyleApplication(dspy.Signature):
     style_characteristics = dspy.InputField()
     styled_content = dspy.OutputField()
 
-class StyleSimilarity(dspy.Signature):
-    original_sample = dspy.InputField()
+class StyleSimilarityEvaluation(dspy.Signature):
+    original_style = dspy.InputField()
     styled_content = dspy.InputField()
     similarity_score = dspy.OutputField()
     feedback = dspy.OutputField()
+
+class LinkedInStyleAnalyzer(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.analyzer = dspy.Predict(LinkedInStyleAnalysis)
+    
+    def forward(self, sample_post):
+        result = self.analyzer(sample_post=sample_post)
+        
+        if isinstance(result.style_characteristics, str):
+            try:
+                result.style_characteristics = json.loads(result.style_characteristics)
+            except json.JSONDecodeError:
+                style_text = result.style_characteristics
+                result.style_characteristics = {
+                    "tone": "extracted from sample",
+                    "structure": "extracted from sample",
+                    "formatting": "extracted from sample",
+                    "hooks_and_cta": "extracted from sample",
+                    "emoji_usage": "extracted from sample"
+                }
+        
+        return result
+
+class LinkedInContentTransformer(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.transformer = dspy.Predict(LinkedInContentTransformation)
+    
+    def forward(self, content_to_transform, style_characteristics):
+        return self.transformer(
+            content_to_transform=content_to_transform, 
+            style_characteristics=style_characteristics
+        )
+
+class ArticleQualityEvaluator(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.evaluator = dspy.Predict(ArticleQualityEvaluation)
+    
+    def forward(self, original_sample, generated_article):
+        result = self.evaluator(
+            original_sample=original_sample, 
+            generated_article=generated_article
+        )
+        
+        if isinstance(result.quality_score, str):
+            try:
+                result.quality_score = float(result.quality_score)
+            except ValueError:
+                result.quality_score = 0.5
+        
+        return result
+
+class LinkedInArticlePipeline(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.analyzer = LinkedInStyleAnalyzer()
+        self.transformer = LinkedInContentTransformer()
+        self.evaluator = ArticleQualityEvaluator()
+    
+    def forward(self, sample_post, content_to_transform):
+        analysis_result = self.analyzer(sample_post)
+        transformation_result = self.transformer(
+            content_to_transform=content_to_transform, 
+            style_characteristics=analysis_result.style_characteristics
+        )
+        evaluation_result = self.evaluator(
+            original_sample=sample_post,
+            generated_article=transformation_result.linkedin_article
+        )
+        
+        return {
+            "style_characteristics": analysis_result.style_characteristics,
+            "linkedin_article": transformation_result.linkedin_article,
+            "quality_score": evaluation_result.quality_score,
+            "feedback": evaluation_result.feedback
+        }
 
 class StyleExtractor(dspy.Module):
     def __init__(self):
@@ -24,20 +117,16 @@ class StyleExtractor(dspy.Module):
     def forward(self, sample_text):
         result = self.extractor(sample_text=sample_text)
         
-        # Convert string to dict if needed (for Gemini compatibility)
         if isinstance(result.style_characteristics, str):
             try:
-                # Try to parse it as JSON first
                 result.style_characteristics = json.loads(result.style_characteristics)
             except json.JSONDecodeError:
-                # If not JSON, convert to a simple dict with features
                 style_text = result.style_characteristics
                 result.style_characteristics = {
-                    "tone": style_text,
-                    "vocabulary": "extracted from text",
-                    "formality": "extracted from text",
-                    "sentence": "extracted from text",
-                    "paragraph": "extracted from text"
+                    "tone": "extracted from sample",
+                    "vocabulary": "extracted from sample",
+                    "sentence_structure": "extracted from sample",
+                    "formality": "extracted from sample"
                 }
         
         return result
@@ -48,17 +137,22 @@ class StyleApplicator(dspy.Module):
         self.applicator = dspy.Predict(StyleApplication)
     
     def forward(self, content, style_characteristics):
-        return self.applicator(content=content, style_characteristics=style_characteristics)
+        return self.applicator(
+            content=content, 
+            style_characteristics=style_characteristics
+        )
 
 class StyleEvaluator(dspy.Module):
     def __init__(self):
         super().__init__()
-        self.evaluator = dspy.Predict(StyleSimilarity)
+        self.evaluator = dspy.Predict(StyleSimilarityEvaluation)
     
-    def forward(self, original_sample, styled_content):
-        result = self.evaluator(original_sample=original_sample, styled_content=styled_content)
+    def forward(self, original_style, styled_content):
+        result = self.evaluator(
+            original_style=original_style, 
+            styled_content=styled_content
+        )
         
-        # Convert similarity score to float if it's a string
         if isinstance(result.similarity_score, str):
             try:
                 result.similarity_score = float(result.similarity_score)
@@ -77,11 +171,11 @@ class StylePipeline(dspy.Module):
     def forward(self, sample_text, content_to_style):
         extraction_result = self.extractor(sample_text)
         application_result = self.applicator(
-            content=content_to_style, 
+            content=content_to_style,
             style_characteristics=extraction_result.style_characteristics
         )
         evaluation_result = self.evaluator(
-            original_sample=sample_text,
+            original_style=sample_text,
             styled_content=application_result.styled_content
         )
         

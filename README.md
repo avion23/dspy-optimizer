@@ -1,73 +1,82 @@
-# DSPy Style Prompt Optimizer
+# DSPy LinkedIn Content Optimizer
 
-A streamlined framework for optimizing style extraction and application prompts using DSPy.
+A DSPy-based tool for optimizing LinkedIn content creation. This tool analyzes LinkedIn posts to extract style characteristics and transforms plain content into engaging LinkedIn posts that match the extracted style.
 
-## Overview
+## Features
 
-This package optimizes language model prompts for style-related tasks:
+- **LinkedIn Style Analysis**: Extracts style characteristics from sample LinkedIn posts
+- **Content Transformation**: Transforms plain content into engaging LinkedIn posts
+- **Quality Evaluation**: Evaluates the quality of generated content
+- **Prompt Optimization**: Uses DSPy's MIPROv2 to optimize prompts
 
-1. **Style Extraction**: Analyzes text to identify stylistic characteristics
-2. **Style Application**: Applies identified style to new content
-3. **Evaluation**: Measures style transfer effectiveness
-
-## Quick Start
+## Installation
 
 ```bash
-# Install package
-pip install .
+# Install dependencies
+pip install -e .
+```
 
-# Create .env file with API keys
-echo "OPENAI_API_KEY=your_key_here" > .env
-# OR
-echo "GEMINI_API_KEY=your_key_here" > .env
+Create a `.env` file with your API keys:
+```
+OPENAI_API_KEY=your_openai_api_key
+# or
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+## Usage
+
+### CLI
+
+```bash
+# Run optimization using LinkedIn examples
+python -m dspy_optimizer.cli optimize --examples linkedin_examples.json --output ./output
+
+# Apply optimized prompts to an app
+python -m dspy_optimizer.cli apply --app-path /path/to/app --prompts ./output/optimized_prompts.json
+```
+
+### Demo
+
+```bash
+python demo_linkedin_optimizer.py
+```
+
+## Example
+
+**Input Content**:
+```
+Our company research found that remote employees are more productive but face communication challenges. 
+We surveyed 500 remote workers and found they complete 22% more tasks but spend 3.2 hours daily on 
+communication tools. Asynchronous communication methods can help reduce meeting time.
+```
+
+**Generated LinkedIn Post**:
+```
+**Remote Work: A Productivity Paradox?** 🔍
+
+Our recent research reveals a stunning insight: remote workers are 22% MORE productive, but at what cost?
+
+The hidden challenge? They're spending 3.2 hours DAILY navigating communication tools!
+
+How can we optimize this process?
+
+✅ Implement asynchronous communication
+✅ Establish clear documentation practices
+✅ Use project management tools effectively
+
+Is your team struggling with similar challenges? Share your experience below! 👇
+
+#RemoteWork #Productivity #WorkFromHome
 ```
 
 ## Project Structure
 
-```
-dspy_optimizer/
-├── core/           # Core modules for style extraction and application
-├── utils/          # Data handling utilities
-├── tests/          # Test suite
-├── data            # Example style data
-└── cli.py          # Command line interface
-```
+- `dspy_optimizer/`: Main package
+  - `core/`: Core modules and optimization logic
+  - `utils/`: Utility functions
+- `linkedin_examples.json`: LinkedIn examples for training
+- `demo_linkedin_optimizer.py`: Demo script
 
-## Command Line Usage
+## License
 
-```bash
-# Run optimization with default examples
-dspy-optimize
-
-# Run with custom examples
-dspy-optimize --examples path/to/examples.json --output ./output
-
-# Apply optimized prompts to an application
-dspy-apply path/to/app/directory
-
-# Preview changes without applying
-dspy-apply path/to/app/directory --dry-run
-```
-
-## Example Format
-
-Examples should be provided in JSON format:
-
-```json
-[
-  {
-    "name": "formal_academic",
-    "sample": "The results indicate a statistically significant correlation between variables X and Y (p < 0.01).",
-    "content_to_style": "X and Y are related.",
-    "expected_styled_content": "The data suggests a correlation between variables X and Y."
-  }
-]
-```
-
-## Features
-
-- Optimizes style prompts using DSPy's MIPROv2
-- Supports both OpenAI and Google Gemini models
-- Includes metrics for style quality and application
-- Provides command-line interface for easy usage
-- Test-driven development with comprehensive test coverage
+MIT

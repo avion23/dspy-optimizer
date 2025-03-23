@@ -9,7 +9,7 @@ load_dotenv()
 def configure_dspy():
     if os.getenv("GEMINI_API_KEY"):
         lm = dspy.LM(
-            model="openai/gemini-1.5-flash",
+            model="gemini-2.0-flash-exp",
             api_base="https://generativelanguage.googleapis.com/v1beta/openai/",
             api_key=os.getenv("GEMINI_API_KEY")
         )
@@ -17,7 +17,7 @@ def configure_dspy():
         openai_key = os.getenv("OPENAI_API_KEY")
         if not openai_key:
             pytest.skip("No API keys found in environment")
-        lm = dspy.LM(model="openai/gpt-4o-mini")
+        lm = dspy.LM(model="gemini-2.0-flash-exp")
     
     dspy.settings.configure(lm=lm)
     return lm
