@@ -1,0 +1,32 @@
+[
+  {
+    "name": "academic",
+    "sample": "The results of our research indicate a statistically significant correlation (p < 0.001) between sleep quality and cognitive performance. Furthermore, we observed that participants who reported regular meditation practices demonstrated enhanced resilience to sleep deprivation effects on working memory tasks.",
+    "content_to_style": "We found that how well you sleep affects how well your brain works. Also, people who meditate regularly seem to handle lack of sleep better when doing memory tasks.",
+    "expected_styled_content": "Our analysis revealed a statistically significant relationship (p < 0.001) between sleep quality and cognitive function. Additionally, subjects with consistent meditation practices exhibited greater resistance to sleep deprivation-induced deficits in working memory performance."
+  },
+  {
+    "name": "casual_blog",
+    "sample": "Hey everyone! Just got back from the most AMAZING trip to Japan and I'm still buzzing from all the incredible experiences. The food was to die for (seriously, I had ramen that changed my life!), and don't even get me started on how beautiful Kyoto was in the spring with all the cherry blossoms!",
+    "content_to_style": "I visited Japan recently. The food was excellent, particularly the ramen. Kyoto was visually impressive during spring when cherry trees were blooming.",
+    "expected_styled_content": "Guys, I just got back from the most mind-blowing trip to Japan and I'm still totally on cloud nine! OMG the food there was absolutely incredible - I had this ramen that literally blew my taste buds away! And Kyoto in spring? GORGEOUS! The cherry blossoms were everywhere and I couldn't stop taking pictures!"
+  },
+  {
+    "name": "technical_documentation",
+    "sample": "To implement this feature, invoke the initialize() method with the appropriate configuration parameters. Ensure that all dependencies are properly installed before proceeding. Note that this implementation requires Node.js version 16.0 or higher. See example 3.2.1 in the documentation for additional implementation details.",
+    "content_to_style": "Here's how to add this feature: First call initialize() with your settings. Make sure you have all the needed packages installed first. You need Node.js 16.0+. Check example 3.2.1 for more info.",
+    "expected_styled_content": "To integrate this functionality, execute the initialize() method with the requisite configuration parameters. Prior to implementation, verify that all dependencies have been successfully installed. This implementation necessitates Node.js version 16.0 or a subsequent release. Refer to documentation example 3.2.1 for comprehensive implementation specifications."
+  },
+  {
+    "name": "business_formal",
+    "sample": "Dear Mr. Thompson, I am writing to formally request your consideration of our proposal dated March 15, 2023. As outlined therein, our solution offers a 15% reduction in operational costs while maintaining compliance with all regulatory requirements. We would appreciate the opportunity to discuss this matter further at your earliest convenience.",
+    "content_to_style": "Hi John, I'm writing about our proposal from March 15. Our solution can save you 15% on operation costs and still meet all regulations. Let's talk about it soon.",
+    "expected_styled_content": "Dear Mr. Thompson, I am writing with reference to our proposal submitted on March 15, 2023. As detailed in the document, our proposed solution provides a 15% reduction in operational expenditure while ensuring full compliance with relevant regulatory frameworks. We would welcome the opportunity to elaborate on this proposal at a time that is suitable for you."
+  },
+  {
+    "name": "marketing_persuasive",
+    "sample": "Discover the secret to flawless skin with our revolutionary new formula! Clinically proven to reduce wrinkles by up to 60% in just two weeks, SkinGlow Pro doesn't just mask imperfections — it transforms your skin at the cellular level. Don't wait another day to experience the radiance you deserve. Order now and receive a FREE travel-sized serum (a $45 value) with your purchase!",
+    "content_to_style": "Our new skin product reduces wrinkles by 60% in two weeks according to clinical tests. It works by affecting skin cells directly rather than covering problems. If you order now you get a free small serum normally worth $45.",
+    "expected_styled_content": "Unlock the mystery of age-defying beauty with our breakthrough formula! Scientifically demonstrated to diminish wrinkles by an astonishing 60% in just 14 days, SkinGlow Pro goes beyond concealing flaws — it fundamentally rejuvenates your skin at the cellular level. Why postpone the luminous complexion you've always wanted? Purchase today and we'll include a COMPLIMENTARY travel-sized serum (valued at $45) with your order!"
+  }
+]

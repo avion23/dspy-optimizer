@@ -1,0 +1,32 @@
+{
+  "applicator": {
+    "traces": [],
+    "train": [],
+    "demos": [],
+    "signature": {
+      "instructions": "Given the fields `content`, `style_characteristics`, produce the fields `styled_content`.",
+      "fields": [
+        {
+          "prefix": "Content:",
+          "description": "${content}"
+        },
+        {
+          "prefix": "Style Characteristics:",
+          "description": "${style_characteristics}"
+        },
+        {
+          "prefix": "Styled Content:",
+          "description": "${styled_content}"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.11",
+      "dspy": "2.6.14",
+      "cloudpickle": "3.1"
+    }
+  }
+}

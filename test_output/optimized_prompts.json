@@ -1,0 +1,4 @@
+{
+  "style_analyzer_prompt": "StyleExtractor optimized prompt",
+  "style_applicator_prompt": "StyleApplicator optimized prompt"
+}

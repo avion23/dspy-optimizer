@@ -1,0 +1,32 @@
+[
+  {
+    "name": "formal_academic",
+    "sample": "The results indicate a statistically significant correlation between variables X and Y (p < 0.01). Furthermore, the analysis reveals several underlying factors that warrant further investigation.",
+    "content_to_style": "This shows X and Y are related. We found some interesting things worth looking into more.",
+    "expected_styled_content": "The findings demonstrate a statistically significant relationship between variables X and Y. Moreover, the investigation uncovers multiple underlying factors that merit additional examination."
+  },
+  {
+    "name": "casual_conversational",
+    "sample": "Hey there! Just wanted to let you know that I checked out that new restaurant we talked about. It was pretty awesome, though a bit pricey. The desserts were to die for!",
+    "content_to_style": "I visited the restaurant we discussed previously. It was excellent but expensive. The desserts were exceptional.",
+    "expected_styled_content": "Hey! So I finally went to that restaurant we were chatting about. It was super good, but kinda expensive tbh. OMG the desserts though - absolutely amazing!"
+  },
+  {
+    "name": "technical_documentation",
+    "sample": "To implement this feature, invoke the `configure()` method with the appropriate parameters. Ensure that all dependencies are properly initialized before proceeding. See example 3.2 for reference implementation.",
+    "content_to_style": "Use the configure function with the right settings. Make sure everything is set up first. Look at example 3.2.",
+    "expected_styled_content": "To implement this functionality, call the `configure()` method with the required parameters. Verify that all dependencies have been correctly initialized prior to execution. Refer to example 3.2 for implementation details."
+  },
+  {
+    "name": "marketing_copy",
+    "sample": "Introducing our revolutionary product! Designed with YOU in mind, it transforms the way you work. Save time, boost productivity, and experience results like never before. Don't miss out - try it today!",
+    "content_to_style": "Our new product helps you work better and faster. It saves time and makes you more productive.",
+    "expected_styled_content": "Unveiling our game-changing product! Crafted specifically for YOU, it completely revolutionizes your workflow. Reclaim your time, skyrocket your productivity, and achieve unprecedented results. Act now - experience the difference today!"
+  },
+  {
+    "name": "legal_document",
+    "sample": "The parties hereto agree as follows: Licensee shall not, without prior written consent of Licensor, disclose confidential information to any third party. In the event of breach, Licensor reserves the right to seek appropriate remedies including, but not limited to, injunctive relief.",
+    "content_to_style": "Both sides agree: You can't share secret information with others without permission. If you break this rule, we can take legal action.",
+    "expected_styled_content": "The undersigned parties hereby mutually consent to the following terms: Licensee shall not, absent express written authorization from Licensor, divulge confidential information to any third party whatsoever. Should a breach of this provision occur, Licensor maintains all rights to pursue any and all available legal remedies, including but not limited to injunctive relief."
+  }
+]

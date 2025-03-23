@@ -1,0 +1,28 @@
+{
+  "extractor": {
+    "traces": [],
+    "train": [],
+    "demos": [],
+    "signature": {
+      "instructions": "Given the fields `sample_text`, produce the fields `style_characteristics`.",
+      "fields": [
+        {
+          "prefix": "Sample Text:",
+          "description": "${sample_text}"
+        },
+        {
+          "prefix": "Style Characteristics:",
+          "description": "${style_characteristics}"
+        }
+      ]
+    },
+    "lm": null
+  },
+  "metadata": {
+    "dependency_versions": {
+      "python": "3.11",
+      "dspy": "2.6.14",
+      "cloudpickle": "3.1"
+    }
+  }
+}

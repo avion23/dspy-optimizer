@@ -1,0 +1,14 @@
+[
+  {
+    "name": "academic",
+    "sample": "The results of our research indicate a statistically significant correlation (p < 0.001) between sleep quality and cognitive performance. Furthermore, we observed that participants who reported regular meditation practices demonstrated enhanced resilience to sleep deprivation effects on working memory tasks.",
+    "content_to_style": "We found that how well you sleep affects how well your brain works. Also, people who meditate regularly seem to handle lack of sleep better when doing memory tasks.",
+    "expected_styled_content": "Our analysis revealed a statistically significant relationship (p < 0.001) between sleep quality and cognitive function. Additionally, subjects with consistent meditation practices exhibited greater resistance to sleep deprivation-induced deficits in working memory performance."
+  },
+  {
+    "name": "technical_documentation",
+    "sample": "To implement this feature, invoke the initialize() method with the appropriate configuration parameters. Ensure that all dependencies are properly installed before proceeding. Note that this implementation requires Node.js version 16.0 or higher. See example 3.2.1 in the documentation for additional implementation details.",
+    "content_to_style": "Here's how to add this feature: First call initialize() with your settings. Make sure you have all the needed packages installed first. You need Node.js 16.0+. Check example 3.2.1 for more info.",
+    "expected_styled_content": "To integrate this functionality, execute the initialize() method with the requisite configuration parameters. Prior to implementation, verify that all dependencies have been successfully installed. This implementation necessitates Node.js version 16.0 or a subsequent release. Refer to documentation example 3.2.1 for comprehensive implementation specifications."
+  }
+]
