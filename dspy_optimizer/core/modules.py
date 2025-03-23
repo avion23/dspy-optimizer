@@ -36,7 +36,9 @@ class LinkedInStyleAnalyzer(dspy.Module):
         super().__init__()
         self.analyzer = dspy.Predict(LinkedInStyleAnalysis)
     
-    def forward(self, sample_post):
+    def forward(self, sample_post=None, sample=None, **kwargs):
+        if sample is not None and sample_post is None:
+            sample_post = sample
         result = self.analyzer(sample_post=sample_post)
         
         if isinstance(result.style_characteristics, str):
@@ -58,10 +60,12 @@ class LinkedInContentTransformer(dspy.Module):
         super().__init__()
         self.transformer = dspy.Predict(LinkedInContentTransformation)
     
-    def forward(self, content_to_transform, style_characteristics):
+    def forward(self, **kwargs):
+        if 'sample_post' in kwargs:
+            kwargs.pop('sample_post')  # Ignore sample_post if provided
         return self.transformer(
-            content_to_transform=content_to_transform, 
-            style_characteristics=style_characteristics
+            content_to_transform=kwargs.get('content_to_transform'), 
+            style_characteristics=kwargs.get('style_characteristics')
         )
 
 class ArticleQualityEvaluator(dspy.Module):

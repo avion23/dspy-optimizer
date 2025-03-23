@@ -1,10 +1,12 @@
 import os
 import json
 import logging
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 import dspy
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
+
 from dspy_optimizer.utils.metrics import linkedin_style_metric, linkedin_content_metric, linkedin_quality_metric
 
 from dspy_optimizer.core.modules import (
@@ -18,21 +20,33 @@ def configure_lm():
     
     if os.getenv("GEMINI_API_KEY"):
         try:
-            return dspy.LM(
-                model="openai/gemini-1.5-flash",
-                api_base="https://generativelanguage.googleapis.com/v1beta/openai/",
-                api_key=os.getenv("GEMINI_API_KEY")
-            )
+            kwargs = {
+                "model": "openai/gemini-1.5-flash",
+                "api_base": "https://generativelanguage.googleapis.com/v1beta/openai/",
+                "api_key": os.getenv("GEMINI_API_KEY"),
+                "max_requests_per_minute": 10  # Approximately 1 request every 6 seconds
+            }
+            return dspy.LM(**kwargs)
         except Exception as e:
             logging.warning(f"Failed to initialize Gemini model: {e}")
     
     if os.getenv("OPENAI_API_KEY"):
         try:
-            return dspy.LM(model="openai/gpt-4o-mini")
+            kwargs = {
+                "model": "openai/gpt-4o-mini",
+                "api_key": os.getenv("OPENAI_API_KEY"),
+                "max_requests_per_minute": 15  # Approximately 1 request every 4 seconds
+            }
+            return dspy.LM(**kwargs)
         except Exception as e:
             logging.warning(f"Failed to initialize GPT-4o-mini: {e}")
             try:
-                return dspy.LM(model="openai/gpt-3.5-turbo")
+                kwargs = {
+                    "model": "openai/gpt-3.5-turbo",
+                    "api_key": os.getenv("OPENAI_API_KEY"),
+                    "max_requests_per_minute": 25  # 1 request every 2.4 seconds
+                }
+                return dspy.LM(**kwargs)
             except Exception as e:
                 logging.warning(f"Failed to initialize GPT-3.5-turbo: {e}")
     
@@ -46,15 +60,16 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
     
     optimizer = dspy.MIPROv2(
         metric=metric,
-        max_bootstrapped_demos=6,
-        auto="medium"
+        max_bootstrapped_demos=3,
+        num_candidates=5,
+        auto="light"
     )
     
     try:
         optimized_module = optimizer.compile(
             module, 
             trainset=trainset,
-            num_trials=20,
+            num_trials=5,
             requires_permission_to_run=False
         )
         
@@ -66,8 +81,29 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
         
         return optimized_module
     except Exception as e:
-        logging.error(f"{module_name.capitalize()} optimization error: {e}")
-        return module
+        if "rate limit" in str(e).lower() or "429" in str(e):
+            logging.error(f"{module_name.capitalize()} rate limit exceeded: {e}")
+            logging.info("Waiting for 60 seconds before retrying...")
+            time.sleep(60)
+            try:
+                # Try again with fewer trials
+                optimized_module = optimizer.compile(
+                    module, 
+                    trainset=trainset,
+                    num_trials=3,
+                    requires_permission_to_run=False
+                )
+                
+                save_path = Path(output_dir) / filename
+                optimized_module.save(str(save_path))
+                
+                return optimized_module
+            except Exception as retry_e:
+                logging.error(f"{module_name.capitalize()} optimization retry failed: {retry_e}")
+                return module
+        else:
+            logging.error(f"{module_name.capitalize()} optimization error: {e}")
+            return module
 
 def optimize_analyzer(train_examples: List[dspy.Example], output_dir: str = ".") -> LinkedInStyleAnalyzer:
     analyzer = LinkedInStyleAnalyzer()

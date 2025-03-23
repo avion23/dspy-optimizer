@@ -1,7 +1,7 @@
-import os
 import json
 import dspy
-from typing import Dict, List, Tuple
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional
 from importlib import resources
 
 def load_examples(file_path=None) -> List[Dict]:
@@ -12,15 +12,17 @@ def load_examples(file_path=None) -> List[Dict]:
             return json.loads(data_text)
         except Exception as e:
             try:
-                with open(os.path.join(os.path.dirname(__file__), '..', 'data')) as f:
+                data_path = Path(__file__).parent.parent / 'data'
+                with open(data_path) as f:
                     return json.load(f)
             except Exception as nested_e:
                 raise ValueError(f"Error loading package data: {e}, {nested_e}")
     
-    if not os.path.exists(file_path):
+    path = Path(file_path)
+    if not path.exists():
         raise FileNotFoundError(f"Examples file not found: {file_path}")
     
-    with open(file_path, 'r') as f:
+    with open(path, 'r') as f:
         return json.load(f)
 
 def create_example(ex, example_type, with_inputs=None):
