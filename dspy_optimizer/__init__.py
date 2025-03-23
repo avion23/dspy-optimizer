@@ -11,7 +11,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-for logger_name in ['litellm', 'httpx', 'numexpr', 'datasets', 'tqdm']:
+for logger_name in ['litellm', 'httpx', 'numexpr', 'datasets', 'tqdm', 'LiteLLM', 'LiteLLM Proxy', 'LiteLLM Router']:
     logging.getLogger(logger_name).setLevel(logging.WARNING)
 
 os.environ['TQDM_DISABLE'] = '1'
