@@ -4,7 +4,6 @@ import json
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict, Optional
 
 import dspy
 
@@ -16,29 +15,28 @@ from dspy_optimizer.core.optimizer import (
     extract_optimized_prompts
 )
 
-def optimize(examples_path: Optional[str] = None, output_dir: str = ".") -> Dict:
+def optimize(examples_path=None, output_dir="."):
     try:
         lm = configure_lm()
         dspy.settings.configure(lm=lm)
         
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
         
         if examples_path is None:
             examples_path = os.path.join(os.path.dirname(__file__), "..", "linkedin_examples.json")
         
         examples = load_examples(examples_path)
-        train_analyzer_examples, train_examples, test_examples = prepare_datasets(examples)
+        train_analyzer_examples, train_examples, _ = prepare_datasets(examples)
         
         optimized_analyzer = optimize_analyzer(train_analyzer_examples, output_dir)
-        optimized_transformer = optimize_transformer(train_examples, optimized_analyzer, output_dir)
+        optimize_transformer(train_examples, optimized_analyzer, output_dir)
         
         return extract_optimized_prompts(output_dir)
     except Exception as e:
         logging.error(f"Optimization error: {e}")
         return {"error": str(e)}
 
-def apply_to_app(app_path: Optional[str] = None, prompts_path: str = "optimized_prompts.json", dry_run: bool = False) -> bool:
+def apply_to_app(app_path=None, prompts_path="optimized_prompts.json", dry_run=False):
     try:
         with open(prompts_path, "r") as f:
             prompts = json.load(f)
@@ -48,8 +46,6 @@ def apply_to_app(app_path: Optional[str] = None, prompts_path: str = "optimized_
     except json.JSONDecodeError:
         logging.error(f"Invalid JSON in prompts file: {prompts_path}")
         return False
-    
-    linkedin_prompts = "linkedin_analyzer_prompt" in prompts and "linkedin_transformer_prompt" in prompts
     
     if not app_path:
         app_path = input("Enter the application directory path (e.g., ./app): ")
@@ -62,35 +58,42 @@ def apply_to_app(app_path: Optional[str] = None, prompts_path: str = "optimized_
         logging.error(f"Application path not found: {app_path}")
         return False
     
-    update_successful = False
+    linkedin_prompts = "linkedin_analyzer_prompt" in prompts and "linkedin_transformer_prompt" in prompts
+    if not linkedin_prompts:
+        logging.error("Required prompts not found in prompts file")
+        return False
     
     social_page_path = app_path / "lib" / "social_media_content.dart"
     linkedin_page_path = app_path / "lib" / "linkedin_post.dart"
+    target_path = linkedin_page_path if linkedin_page_path.exists() else social_page_path
     
-    if linkedin_prompts and (social_page_path.exists() or linkedin_page_path.exists()):
-        try:
-            target_path = linkedin_page_path if linkedin_page_path.exists() else social_page_path
-            with open(target_path, "r") as f:
-                content = f.read()
+    if not target_path.exists():
+        logging.error(f"Target file not found at {target_path}")
+        return False
+    
+    try:
+        with open(target_path, "r") as f:
+            content = f.read()
+        
+        old_analyzer_prompt = "You are an AI that analyzes LinkedIn posts."
+        old_transformer_prompt = "Transform the content into an engaging LinkedIn post."
+        
+        if old_analyzer_prompt not in content or old_transformer_prompt not in content:
+            logging.error("Could not find target prompts in application file")
+            return False
             
-            old_analyzer_prompt = "You are an AI that analyzes LinkedIn posts."
-            if old_analyzer_prompt in content:
-                new_content = content.replace(old_analyzer_prompt, prompts["linkedin_analyzer_prompt"])
+        new_content = content.replace(old_analyzer_prompt, prompts["linkedin_analyzer_prompt"])
+        new_content = new_content.replace(old_transformer_prompt, prompts["linkedin_transformer_prompt"])
+        
+        if not dry_run:
+            with open(target_path, "w") as f:
+                f.write(new_content)
                 
-                old_transformer_prompt = "Transform the content into an engaging LinkedIn post."
-                if old_transformer_prompt in new_content:
-                    new_content = new_content.replace(old_transformer_prompt, prompts["linkedin_transformer_prompt"])
-                
-                if not dry_run:
-                    with open(target_path, "w") as f:
-                        f.write(new_content)
-                update_successful = True
-                
-                logging.info(f"Updated LinkedIn prompts in {target_path}")
-        except Exception as e:
-            logging.error(f"Error updating app files: {e}")
-    
-    return update_successful
+        logging.info(f"Updated LinkedIn prompts in {target_path}")
+        return True
+    except Exception as e:
+        logging.error(f"Error updating app files: {e}")
+        return False
 
 def main():
     parser = argparse.ArgumentParser(description="DSPy LinkedIn Content Optimizer")
@@ -133,7 +136,7 @@ def main():
         if success:
             print("Successfully applied optimized prompts to application.")
         else:
-            print("Failed to apply prompts. Make sure the prompt file exists and application paths are correct.")
+            print("Failed to apply prompts. Check logs for details.")
     else:
         parser.print_help()
 

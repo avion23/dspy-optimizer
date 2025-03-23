@@ -1,15 +1,14 @@
 import json
 import dspy
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 from importlib import resources
 
-def load_examples(file_path=None) -> List[Dict]:
+def load_examples(file_path=None):
     if not file_path:
         try:
             with resources.files('dspy_optimizer').joinpath('data_dir', 'examples.json').open('r') as f:
-                data_text = f.read()
-            return json.loads(data_text)
+                return json.loads(f.read())
         except Exception as e:
             try:
                 data_path = Path(__file__).parent.parent / 'data'
@@ -26,12 +25,6 @@ def load_examples(file_path=None) -> List[Dict]:
         return json.load(f)
 
 def create_example(ex, example_type, with_inputs=None):
-    input_field_map = {
-        'test': ["sample_text", "content_to_style"],
-        'linkedin': ["sample_post", "content_to_transform"],
-        'style': ["sample", "content_to_style"]
-    }
-    
     if example_type == 'test':
         example = dspy.Example(
             sample_text=ex["sample"],
@@ -54,23 +47,19 @@ def create_example(ex, example_type, with_inputs=None):
         
     return example
 
-def prepare_datasets(examples) -> Tuple[List[dspy.Example], List[dspy.Example], List[dspy.Example]]:
-    split_index = max(1, int(len(examples) * 0.7))
-    if len(examples) == 2:
-        split_index = 1
-    
-    example_type = None
+def detect_example_type(examples):
     if "type" in examples[0]:
-        example_type = examples[0]["type"]
-    else:
-        is_test_example = len(examples) == 2 and all(
-            "name" in ex and ex["name"].startswith("test_style") 
-            for ex in examples
-        )
-        is_linkedin_example = any("expected_linkedin_article" in ex for ex in examples)
-        
-        example_type = 'test' if is_test_example else ('linkedin' if is_linkedin_example else 'style')
+        return examples[0]["type"]
     
+    is_test_example = len(examples) == 2 and all(
+        "name" in ex and ex["name"].startswith("test_style") 
+        for ex in examples
+    )
+    is_linkedin_example = any("expected_linkedin_article" in ex for ex in examples)
+    
+    return 'test' if is_test_example else ('linkedin' if is_linkedin_example else 'style')
+
+def get_input_fields(example_type):
     input_field_map = {
         'test': ["sample_text"],
         'linkedin': ["sample_post"],
@@ -83,22 +72,29 @@ def prepare_datasets(examples) -> Tuple[List[dspy.Example], List[dspy.Example], 
         'style': ["sample", "content_to_style"]
     }
     
-    train_extractor_examples = []
-    for ex in examples[:split_index]:
-        inputs = input_field_map.get(example_type, ["sample_post"])
-        example = create_example(ex, example_type, inputs)
-        train_extractor_examples.append(example)
+    return input_field_map.get(example_type, ["sample_post"]), full_input_map.get(example_type, ["sample_post", "content_to_transform"])
+
+def prepare_datasets(examples):
+    split_index = max(1, int(len(examples) * 0.7))
+    if len(examples) == 2:
+        split_index = 1
     
-    train_examples = []
-    for ex in examples[:split_index]:
-        inputs = full_input_map.get(example_type, ["sample_post", "content_to_transform"])
-        example = create_example(ex, example_type, inputs)
-        train_examples.append(example)
+    example_type = detect_example_type(examples)
+    single_inputs, full_inputs = get_input_fields(example_type)
     
-    test_examples = []
-    for ex in examples[split_index:]:
-        inputs = full_input_map.get(example_type, ["sample_post", "content_to_transform"])
-        example = create_example(ex, example_type, inputs)
-        test_examples.append(example)
+    train_extractor_examples = [
+        create_example(ex, example_type, single_inputs) 
+        for ex in examples[:split_index]
+    ]
+    
+    train_examples = [
+        create_example(ex, example_type, full_inputs) 
+        for ex in examples[:split_index]
+    ]
+    
+    test_examples = [
+        create_example(ex, example_type, full_inputs) 
+        for ex in examples[split_index:]
+    ]
     
     return train_extractor_examples, train_examples, test_examples

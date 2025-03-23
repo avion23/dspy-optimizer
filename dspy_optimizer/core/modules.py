@@ -61,8 +61,7 @@ class LinkedInContentTransformer(dspy.Module):
         self.transformer = dspy.Predict(LinkedInContentTransformation)
     
     def forward(self, **kwargs):
-        if 'sample_post' in kwargs:
-            kwargs.pop('sample_post')  # Ignore sample_post if provided
+        kwargs.pop('sample_post', None)
         return self.transformer(
             content_to_transform=kwargs.get('content_to_transform'), 
             style_characteristics=kwargs.get('style_characteristics')

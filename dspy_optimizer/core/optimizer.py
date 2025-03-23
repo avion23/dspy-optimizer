@@ -7,46 +7,37 @@ from dotenv import load_dotenv
 import dspy
 from typing import Dict, List, Optional, Any
 
-from dspy_optimizer.utils.metrics import linkedin_style_metric, linkedin_content_metric, linkedin_quality_metric
-
-from dspy_optimizer.core.modules import (
-    LinkedInStyleAnalyzer, 
-    LinkedInContentTransformer,
-    LinkedInArticlePipeline
-)
+from dspy_optimizer.utils.metrics import linkedin_style_metric, linkedin_content_metric
+from dspy_optimizer.core.modules import LinkedInStyleAnalyzer, LinkedInContentTransformer
 
 def configure_lm():
     load_dotenv()
     
     if os.getenv("GEMINI_API_KEY"):
         try:
-            kwargs = {
-                "model": "openai/gemini-1.5-flash",
-                "api_base": "https://generativelanguage.googleapis.com/v1beta/openai/",
-                "api_key": os.getenv("GEMINI_API_KEY"),
-                "max_requests_per_minute": 10  # Approximately 1 request every 6 seconds
-            }
-            return dspy.LM(**kwargs)
+            return dspy.LM(
+                model="openai/gemini-1.5-flash",
+                api_base="https://generativelanguage.googleapis.com/v1beta/openai/",
+                api_key=os.getenv("GEMINI_API_KEY")
+            )
         except Exception as e:
             logging.warning(f"Failed to initialize Gemini model: {e}")
     
     if os.getenv("OPENAI_API_KEY"):
         try:
-            kwargs = {
-                "model": "openai/gpt-4o-mini",
-                "api_key": os.getenv("OPENAI_API_KEY"),
-                "max_requests_per_minute": 15  # Approximately 1 request every 4 seconds
-            }
-            return dspy.LM(**kwargs)
+            return dspy.LM(
+                model="openai/gpt-4o-mini",
+                api_key=os.getenv("OPENAI_API_KEY"),
+                max_requests_per_minute=15
+            )
         except Exception as e:
             logging.warning(f"Failed to initialize GPT-4o-mini: {e}")
             try:
-                kwargs = {
-                    "model": "openai/gpt-3.5-turbo",
-                    "api_key": os.getenv("OPENAI_API_KEY"),
-                    "max_requests_per_minute": 25  # 1 request every 2.4 seconds
-                }
-                return dspy.LM(**kwargs)
+                return dspy.LM(
+                    model="openai/gpt-3.5-turbo",
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                    max_requests_per_minute=25
+                )
             except Exception as e:
                 logging.warning(f"Failed to initialize GPT-3.5-turbo: {e}")
     
@@ -73,10 +64,8 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
             requires_permission_to_run=False
         )
         
-        output_path = Path(output_dir)
-        output_path.mkdir(parents=True, exist_ok=True)
-        
-        save_path = output_path / filename
+        save_path = Path(output_dir) / filename
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
         optimized_module.save(str(save_path))
         
         return optimized_module
@@ -86,7 +75,6 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
             logging.info("Waiting for 60 seconds before retrying...")
             time.sleep(60)
             try:
-                # Try again with fewer trials
                 optimized_module = optimizer.compile(
                     module, 
                     trainset=trainset,
@@ -100,15 +88,14 @@ def run_optimization(module, trainset, metric, output_dir, filename, module_name
                 return optimized_module
             except Exception as retry_e:
                 logging.error(f"{module_name.capitalize()} optimization retry failed: {retry_e}")
-                return module
         else:
             logging.error(f"{module_name.capitalize()} optimization error: {e}")
-            return module
+        
+        return module
 
-def optimize_analyzer(train_examples: List[dspy.Example], output_dir: str = ".") -> LinkedInStyleAnalyzer:
-    analyzer = LinkedInStyleAnalyzer()
+def optimize_analyzer(train_examples, output_dir="."):
     return run_optimization(
-        module=analyzer,
+        module=LinkedInStyleAnalyzer(),
         trainset=train_examples,
         metric=linkedin_style_metric,
         output_dir=output_dir,
@@ -116,17 +103,14 @@ def optimize_analyzer(train_examples: List[dspy.Example], output_dir: str = ".")
         module_name="analyzer"
     )
 
-def extract_prompt_from_module(module) -> str:
+def extract_prompt_from_module(module):
     default_prompts = {
         LinkedInStyleAnalyzer: "You are an AI that analyzes LinkedIn content to identify effective posting strategies. Extract key style characteristics such as tone, structure, emoji usage, hooks, calls-to-action, and formatting.",
         LinkedInContentTransformer: "You are a LinkedIn content expert. Transform the provided content into an engaging LinkedIn post by applying the style characteristics. Focus on creating attention-grabbing hooks, using emojis strategically, formatting for readability, and adding appropriate hashtags."
     }
     
     module_type = type(module)
-    if module_type in default_prompts:
-        default_prompt = default_prompts[module_type]
-    else:
-        default_prompt = f"{module.__class__.__name__} optimized prompt"
+    default_prompt = default_prompts.get(module_type, f"{module.__class__.__name__} optimized prompt")
     
     try:
         attrs_to_check = [
@@ -148,10 +132,9 @@ def extract_prompt_from_module(module) -> str:
         
     return default_prompt
 
-def optimize_transformer(train_examples: List[dspy.Example], analyzer: LinkedInStyleAnalyzer, output_dir: str = ".") -> LinkedInContentTransformer:
-    transformer = LinkedInContentTransformer()
+def optimize_transformer(train_examples, analyzer, output_dir="."):
     return run_optimization(
-        module=transformer,
+        module=LinkedInContentTransformer(),
         trainset=train_examples,
         metric=linkedin_content_metric,
         output_dir=output_dir,
@@ -159,7 +142,7 @@ def optimize_transformer(train_examples: List[dspy.Example], analyzer: LinkedInS
         module_name="transformer"
     )
 
-def extract_optimized_prompts(output_dir: str = ".") -> Dict[str, str]:
+def extract_optimized_prompts(output_dir="."):
     output_path = Path(output_dir)
     analyzer_path = output_path / "optimized_linkedin_analyzer.json"
     transformer_path = output_path / "optimized_linkedin_transformer.json"
@@ -171,13 +154,13 @@ def extract_optimized_prompts(output_dir: str = ".") -> Dict[str, str]:
         try:
             analyzer.load(str(analyzer_path))
         except Exception as e:
-            logging.warning(f"Error loading analyzer from {analyzer_path}: {e}. Using default.")
+            logging.warning(f"Error loading analyzer from {analyzer_path}: {e}")
     
     if transformer_path.exists():
         try:
             transformer.load(str(transformer_path))
         except Exception as e:
-            logging.warning(f"Error loading transformer from {transformer_path}: {e}. Using default.")
+            logging.warning(f"Error loading transformer from {transformer_path}: {e}")
     
     prompts = {
         "linkedin_analyzer_prompt": extract_prompt_from_module(analyzer),
