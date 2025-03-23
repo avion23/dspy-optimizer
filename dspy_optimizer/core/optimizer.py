@@ -5,7 +5,6 @@ import time
 from pathlib import Path
 from dotenv import load_dotenv
 import dspy
-from typing import Dict, List, Optional, Any
 
 from dspy_optimizer.utils.metrics import linkedin_style_metric, linkedin_content_metric
 from dspy_optimizer.core.modules import LinkedInStyleAnalyzer, LinkedInContentTransformer

@@ -1,18 +1,5 @@
 import logging
-
-from dspy_optimizer.core.modules import (
-    LinkedInStyleAnalyzer,
-    LinkedInContentTransformer,
-    LinkedInArticlePipeline,
-    StylePipeline
-)
-
-from dspy_optimizer.core.optimizer import (
-    configure_lm,
-    optimize_analyzer,
-    optimize_transformer,
-    extract_optimized_prompts
-)
+import os
 
 from dspy_optimizer.utils.data import (
     load_examples,
@@ -24,5 +11,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-for logger_name in ['litellm', 'httpx', 'numexpr', 'datasets']:
+for logger_name in ['litellm', 'httpx', 'numexpr', 'datasets', 'tqdm']:
     logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+os.environ['TQDM_DISABLE'] = '1'

@@ -4,6 +4,8 @@ import json
 import argparse
 import logging
 from pathlib import Path
+from time import time
+from tabulate import tabulate
 
 import dspy
 
@@ -17,6 +19,8 @@ from dspy_optimizer.core.optimizer import (
 
 def optimize(examples_path=None, output_dir=".", trials=7, candidates=5, bootstrapped_demos=3):
     try:
+        start_time = time()
+        
         lm = configure_lm()
         dspy.settings.configure(lm=lm)
         
@@ -25,13 +29,35 @@ def optimize(examples_path=None, output_dir=".", trials=7, candidates=5, bootstr
         if examples_path is None:
             examples_path = os.path.join(os.path.dirname(__file__), "..", "linkedin_examples.json")
         
+        logging.info(f"Optimizing LinkedIn content using examples from: {examples_path}")
+        logging.info(f"Parameters: {trials} trials, {candidates} candidates, {bootstrapped_demos} bootstrapped demos")
+        
         examples = load_examples(examples_path)
         train_analyzer_examples, train_examples, _ = prepare_datasets(examples)
         
-        optimized_analyzer = optimize_analyzer(train_analyzer_examples, output_dir, trials, bootstrapped_demos, candidates)
-        optimize_transformer(train_examples, optimized_analyzer, output_dir, trials, bootstrapped_demos, candidates)
+        logging.info(f"Loaded {len(examples)} examples, split into {len(train_analyzer_examples)} for analyzer training")
         
-        return extract_optimized_prompts(output_dir)
+        logging.info("Optimizing LinkedIn Style Analyzer...")
+        optimized_analyzer = optimize_analyzer(train_analyzer_examples, output_dir, trials, bootstrapped_demos, candidates)
+        
+        logging.info("Optimizing LinkedIn Content Transformer...")
+        optimized_transformer = optimize_transformer(train_examples, optimized_analyzer, output_dir, trials, bootstrapped_demos, candidates)
+        
+        prompts = extract_optimized_prompts(output_dir)
+        
+        end_time = time()
+        duration = end_time - start_time
+        
+        logging.info("Optimization Results Summary:")
+        results = [
+            ["Analyzer Prompt", f"{len(prompts['linkedin_analyzer_prompt'])} chars"],
+            ["Transformer Prompt", f"{len(prompts['linkedin_transformer_prompt'])} chars"],
+            ["Duration", f"{duration:.1f} seconds"],
+            ["Output Directory", output_dir]
+        ]
+        logging.info("\n" + tabulate(results, tablefmt="simple"))
+        
+        return prompts
     except Exception as e:
         logging.error(f"Optimization error: {e}")
         return {"error": str(e)}
@@ -148,13 +174,13 @@ def main():
     
     if args.command == "optimize":
         optimize(args.examples, args.output, args.trials, args.candidates, args.demos)
-        print(f"Optimization complete. Results saved to {args.output}")
+        logging.info(f"Optimization complete. Results saved to {args.output}")
     elif args.command == "apply":
         success = apply_to_app(args.app_path, args.prompts, args.dry_run)
         if success:
-            print("Successfully applied optimized prompts to application.")
+            logging.info("Successfully applied optimized prompts to application.")
         else:
-            print("Failed to apply prompts. Check logs for details.")
+            logging.error("Failed to apply prompts. Check logs for details.")
     else:
         parser.print_help()
 
