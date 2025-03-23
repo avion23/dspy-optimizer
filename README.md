@@ -35,10 +35,11 @@ python -m dspy_optimizer.cli optimize --examples linkedin_examples.json --output
 python -m dspy_optimizer.cli apply --app-path /path/to/app --prompts ./output/optimized_prompts.json
 ```
 
-### Demo
+### Quick Start
 
 ```bash
-python demo_linkedin_optimizer.py
+# Run optimization directly from CLI
+python -m dspy_optimizer.cli optimize --examples linkedin_examples.json --output ./output
 ```
 
 ## Example

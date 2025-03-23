@@ -9,11 +9,12 @@ setup(
         "dspy-ai>=2.0.0",
         "pytest>=7.0.0",
         "python-dotenv>=1.0.0",
+        "tabulate>=0.9.0"
     ],
     entry_points={
         "console_scripts": [
             "dspy-optimizer=dspy_optimizer.cli:main",
         ],
     },
-    python_requires=">=3.8",
+    python_requires=">=3.11",
 )

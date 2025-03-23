@@ -6,16 +6,11 @@ from importlib import resources
 
 def load_examples(file_path=None):
     if not file_path:
-        try:
-            with resources.files('dspy_optimizer').joinpath('data_dir', 'examples.json').open('r') as f:
-                return json.loads(f.read())
-        except Exception as e:
-            try:
-                data_path = Path(__file__).parent.parent / 'data'
-                with open(data_path) as f:
-                    return json.load(f)
-            except Exception as nested_e:
-                raise ValueError(f"Error loading package data: {e}, {nested_e}")
+        default_examples = Path(__file__).parent.parent.parent / 'linkedin_examples.json'
+        if default_examples.exists():
+            file_path = default_examples
+        else:
+            raise FileNotFoundError("No examples file found and no default file path provided")
     
     path = Path(file_path)
     if not path.exists():
