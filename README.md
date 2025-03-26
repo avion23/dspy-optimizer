@@ -76,7 +76,7 @@ Is your team struggling with similar challenges? Share your experience below! ðŸ
   - `core/`: Core modules and optimization logic
   - `utils/`: Utility functions
 - `linkedin_examples.json`: LinkedIn examples for training
-- `demo_linkedin_optimizer.py`: Demo script
+
 
 ## License
 
