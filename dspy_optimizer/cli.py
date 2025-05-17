@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import re
 import argparse
 import logging
 from pathlib import Path
@@ -89,33 +90,70 @@ def apply_to_app(app_path=None, prompts_path="optimized_prompts.json", dry_run=F
         logging.error("Required prompts not found in prompts file")
         return False
     
-    social_page_path = app_path / "lib" / "social_media_content.dart"
-    linkedin_page_path = app_path / "lib" / "linkedin_post.dart"
-    target_path = linkedin_page_path if linkedin_page_path.exists() else social_page_path
+    target_files = [
+        app_path / "lib" / "linkedin_post.dart",
+        app_path / "lib" / "social_media_content.dart",
+        app_path / "lib" / "src" / "linkedin_post.dart",
+        app_path / "lib" / "src" / "social_media_content.dart"
+    ]
     
-    if not target_path.exists():
-        logging.error(f"Target file not found at {target_path}")
+    target_path = None
+    for path in target_files:
+        if path.exists():
+            target_path = path
+            break
+    
+    if not target_path:
+        logging.error(f"Could not find any target file in {app_path}")
         return False
     
     try:
         with open(target_path, "r") as f:
             content = f.read()
         
-        old_analyzer_prompt = "You are an AI that analyzes LinkedIn posts."
-        old_transformer_prompt = "Transform the content into an engaging LinkedIn post."
+        analyzer_start = "// DSPY_ANALYZER_PROMPT_START"
+        analyzer_end = "// DSPY_ANALYZER_PROMPT_END"
+        transformer_start = "// DSPY_TRANSFORMER_PROMPT_START"
+        transformer_end = "// DSPY_TRANSFORMER_PROMPT_END"
         
-        if old_analyzer_prompt not in content or old_transformer_prompt not in content:
-            logging.error("Could not find target prompts in application file")
-            return False
+        if analyzer_start in content and analyzer_end in content and transformer_start in content and transformer_end in content:
+            analyzer_pattern = f"{analyzer_start}(.*?){analyzer_end}"
+            transformer_pattern = f"{transformer_start}(.*?){transformer_end}"
             
-        new_content = content.replace(old_analyzer_prompt, prompts["linkedin_analyzer_prompt"])
-        new_content = new_content.replace(old_transformer_prompt, prompts["linkedin_transformer_prompt"])
+            new_content = re.sub(
+                analyzer_pattern, 
+                f"{analyzer_start}{prompts['linkedin_analyzer_prompt']}{analyzer_end}", 
+                content, 
+                flags=re.DOTALL
+            )
+            new_content = re.sub(
+                transformer_pattern, 
+                f"{transformer_start}{prompts['linkedin_transformer_prompt']}{transformer_end}", 
+                new_content, 
+                flags=re.DOTALL
+            )
+        else:
+            old_analyzer_prompt = "You are an AI that analyzes LinkedIn posts."
+            old_transformer_prompt = "Transform the content into an engaging LinkedIn post."
+            
+            if old_analyzer_prompt not in content or old_transformer_prompt not in content:
+                logging.warning("Could not find placeholder markers or target prompts in application file")
+                logging.warning("Falling back to exact string match replacement")
+                
+            new_content = content.replace(old_analyzer_prompt, prompts["linkedin_analyzer_prompt"])
+            new_content = new_content.replace(old_transformer_prompt, prompts["linkedin_transformer_prompt"])
         
-        if not dry_run:
+        if content == new_content:
+            logging.warning("No changes were made to the file content")
+            return False
+        
+        if dry_run:
+            logging.info(f"Dry run: Would update prompts in {target_path}")
+        else:
             with open(target_path, "w") as f:
                 f.write(new_content)
-                
-        logging.info(f"Updated LinkedIn prompts in {target_path}")
+            logging.info(f"Updated LinkedIn prompts in {target_path}")
+        
         return True
     except Exception as e:
         logging.error(f"Error updating app files: {e}")
